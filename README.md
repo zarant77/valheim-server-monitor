@@ -1,51 +1,125 @@
 # Valheim Server Monitor
 
-Lightweight real-time monitoring dashboard for a Dockerized Valheim server.
+Lightweight real-time monitoring dashboard for a self-hosted Valheim dedicated server running in Docker.
+
+Designed for Raspberry Pi / home servers.
+
+---
 
 ## Features
 
-- Live player tracking (SteamID + nickname when available)
-- Detects successful joins vs wrong password attempts
-- Server readiness detection based on real log events
-- Docker container + process health check
-- Auto-refresh dashboard (every 5 seconds)
-- Debug routes and raw log access
-- Clean responsive UI (dark theme)
+- Real-time log tailing (`docker logs -f`)
+- Online players detection (SteamID + nickname)
+- Wrong password detection
+- Pending connection tracking
+- Server readiness detection
+- Container + process health checks
+- Clean web dashboard (Express + EJS)
+- JSON API endpoint
 
-## Tech Stack
+---
 
-- Node.js (ESM)
-- Express
-- EJS templates
-- Docker log tailing
-- In-memory state engine
+## Requirements
 
-## Routes
+- Node.js 18+
+- Docker
+- Valheim dedicated server running in container
 
-| Route | Description |
-|-------|------------|
-| `/` | Dashboard |
-| `/debug` | Extended debug info |
-| `/debug/raw` | Last raw log lines |
-| `/api/status` | JSON API |
+---
 
-## Environment Variables
+## Installation
 
 ```bash
-PORT=8080
-VALHEIM_CONTAINER=valheim
-DOCKER_LOG_TAIL=400
-STALE_LOG_SECONDS=180
-PENDING_TTL_MS=120000
-PLAYER_SEEN_TTL_MS=600000
-```
-
-## Run
-
-```bash
+git clone https://github.com/YOUR_USERNAME/valheim-server-monitor.git
+cd valheim-server-monitor
 npm install
 node server.js
 ```
+
+Open:
+
+```
+http://localhost:8080
+```
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| PORT | 8080 | Web server port |
+| VALHEIM_CONTAINER | valheim | Docker container name |
+| STALE_LOG_SECONDS | 180 | Log freshness window |
+| DOCKER_LOG_TAIL | 400 | Initial log lines to read |
+
+Example:
+
+```bash
+PORT=8080 VALHEIM_CONTAINER=valheim node server.js
+```
+
+---
+
+## Running as systemd Service (Recommended)
+
+Create a service file:
+
+```bash
+sudo nano /etc/systemd/system/valheim-server-monitor.service
+```
+
+Paste:
+
+```
+[Unit]
+Description=Valheim Server Monitor
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=zar
+WorkingDirectory=/home/zar/valheim-server-monitor
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=PORT=8080
+Environment=VALHEIM_CONTAINER=valheim
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable valheim-server-monitor
+sudo systemctl start valheim-server-monitor
+```
+
+Check status:
+
+```bash
+sudo systemctl status valheim-server-monitor
+```
+
+View logs:
+
+```bash
+journalctl -u valheim-server-monitor -f
+```
+
+---
+
+## API
+
+### GET /api/status
+
+Returns JSON with full server state.
+
+---
 
 ## License
 

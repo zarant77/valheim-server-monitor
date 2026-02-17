@@ -1,0 +1,17 @@
+[Unit]
+Description=Valheim Server Monitor
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=zar
+WorkingDirectory=/home/zar/valheim-server-monitor
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=PORT=8080
+Environment=VALHEIM_CONTAINER=valheim
+
+[Install]
+WantedBy=multi-user.target
