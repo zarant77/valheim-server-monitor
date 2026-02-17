@@ -38,9 +38,7 @@ node server.js
 
 Open:
 
-```
 http://localhost:8080
-```
 
 ---
 
@@ -63,35 +61,19 @@ PORT=8080 VALHEIM_CONTAINER=valheim node server.js
 
 ## Running as systemd Service (Recommended)
 
-Create a service file:
+The repository already contains a ready-to-use service file:
+
+valheim-server-monitor.service
+
+Create a symbolic link from your project directory to systemd:
 
 ```bash
-sudo nano /etc/systemd/system/valheim-server-monitor.service
+cd ~/valheim-server-monitor
+
+sudo ln -s $(pwd)/valheim-server-monitor.service            /etc/systemd/system/valheim-server-monitor.service
 ```
 
-Paste:
-
-```
-[Unit]
-Description=Valheim Server Monitor
-After=docker.service
-Requires=docker.service
-
-[Service]
-Type=simple
-User=zar
-WorkingDirectory=/home/zar/valheim-server-monitor
-ExecStart=/usr/bin/node server.js
-Restart=always
-RestartSec=5
-Environment=PORT=8080
-Environment=VALHEIM_CONTAINER=valheim
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Then:
+Reload systemd and enable the service:
 
 ```bash
 sudo systemctl daemon-reload
@@ -113,9 +95,23 @@ journalctl -u valheim-server-monitor -f
 
 ---
 
+### Updating After git pull
+
+If you update the .service file in the repository:
+
+```bash
+git pull
+sudo systemctl daemon-reload
+sudo systemctl restart valheim-server-monitor
+```
+
+No need to recreate the symlink.
+
+---
+
 ## API
 
-### GET /api/status
+GET /api/status
 
 Returns JSON with full server state.
 
