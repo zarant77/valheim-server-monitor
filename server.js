@@ -49,21 +49,24 @@ async function dockerExec(container, cmd) {
   const { stdout } = await execFileAsync(
     "docker",
     ["exec", "-i", container, "sh", "-lc", cmd],
-    { maxBuffer: 10 * 1024 * 1024 }
+    { maxBuffer: 10 * 1024 * 1024 },
   );
   return stdout.toString();
 }
 
 async function isValheimProcessRunning(container) {
   try {
-    const out = await dockerExec(container, "pgrep -af 'valheim_server\\.exe' || true");
+    const out = await dockerExec(
+      container,
+      "pgrep -af 'valheim_server\\.exe' || true",
+    );
     if (safeTrim(out)) return true;
   } catch {}
 
   try {
     const out = await dockerExec(
       container,
-      "ps aux | grep -i 'valheim_server\\.exe' | grep -v grep || true"
+      "ps aux | grep -i 'valheim_server\\.exe' | grep -v grep || true",
     );
     return Boolean(safeTrim(out));
   } catch {
@@ -111,7 +114,8 @@ app.set("view engine", "ejs");
 app.locals.fmtDateTime = (value) => {
   if (value === null || value === undefined || value === "") return "—";
 
-  const d = typeof value === "number" ? new Date(value) : new Date(String(value));
+  const d =
+    typeof value === "number" ? new Date(value) : new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
 
   return new Intl.DateTimeFormat("uk-UA", {
@@ -151,19 +155,26 @@ async function buildStatus() {
   const containerStatus = dockerState?.Status || "unknown";
   const containerRestarting = Boolean(dockerState?.Restarting);
 
-  const procRunning = containerRunning ? await isValheimProcessRunning(CONFIG.container) : false;
+  const procRunning = containerRunning
+    ? await isValheimProcessRunning(CONFIG.container)
+    : false;
 
   const snap = state.getSnapshot();
 
-  const logAgeSec =
-    snap.lastSeenMs ? Math.max(0, Math.floor((Date.now() - snap.lastSeenMs) / 1000)) : null;
+  const logAgeSec = snap.lastSeenMs
+    ? Math.max(0, Math.floor((Date.now() - snap.lastSeenMs) / 1000))
+    : null;
 
-  const logFresh = logAgeSec !== null ? logAgeSec <= CONFIG.staleLogSeconds : false;
+  const logFresh =
+    logAgeSec !== null ? logAgeSec <= CONFIG.staleLogSeconds : false;
 
-  const containerStartedAtMs = dockerState?.StartedAt ? Date.parse(dockerState.StartedAt) : null;
+  const containerStartedAtMs = dockerState?.StartedAt
+    ? Date.parse(dockerState.StartedAt)
+    : null;
 
   const lastSeenOk =
-    Boolean(snap.lastSeenMs) && (Date.now() - snap.lastSeenMs <= CONFIG.staleLogSeconds * 1000);
+    Boolean(snap.lastSeenMs) &&
+    Date.now() - snap.lastSeenMs <= CONFIG.staleLogSeconds * 1000;
 
   // "Ready" = we saw ready marker AND it happened after current container start AND logs aren't stale
   const serverReady =
@@ -174,20 +185,23 @@ async function buildStatus() {
     lastSeenOk;
 
   // "Online" (alive) = container+proc alive AND we saw fresh activity
-  const online =
-    containerRunning &&
-    procRunning &&
-    lastSeenOk;
+  const online = containerRunning && procRunning && lastSeenOk;
 
-  const lastError =
-    !containerExists ? "Container not found" :
-    !containerRunning ? `Container not running (${containerStatus})` :
-    containerRestarting ? "Container restarting" :
-    !procRunning ? "valheim_server.exe process not running" :
-    !lastSeenOk ? `No fresh logs (${logAgeSec ?? "?"}s old)` :
-    (!snap.readyMs ? "Server not ready yet (no ready marker seen)" :
-      (containerStartedAtMs && snap.readyMs < containerStartedAtMs) ? "Ready marker is from previous container start" :
-      null);
+  const lastError = !containerExists
+    ? "Container not found"
+    : !containerRunning
+      ? `Container not running (${containerStatus})`
+      : containerRestarting
+        ? "Container restarting"
+        : !procRunning
+          ? "valheim_server.exe process not running"
+          : !lastSeenOk
+            ? `No fresh logs (${logAgeSec ?? "?"}s old)`
+            : !snap.readyMs
+              ? "Server not ready yet (no ready marker seen)"
+              : containerStartedAtMs && snap.readyMs < containerStartedAtMs
+                ? "Ready marker is from previous container start"
+                : null;
 
   return {
     atMs,
