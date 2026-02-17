@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Valheim Status</title>
+  <%- include("partials/head") %>
+</head>
+<body>
+  <div class="wrap">
+    <%- include("partials/top") %>
+
+    <% const dot = (b)=> b ? "ok" : "bad"; %>
+
+    <div class="grid">
+      <!-- SYSTEM CARD -->
+      <div class="card">
+        <p class="title">System Status</p>
+
+        <div class="row" style="margin-bottom:10px">
+          <span class="pill">
+            <span class="dot ok"></span>
+            Container: <span class="mono" data-container><%= data.container %></span>
+          </span>
+
+          <span class="pill">
+            <span class="dot <%= dot(data.containerRunning) %>" data-dot="running"></span>
+            Running: <b data-running><%= data.containerRunning ? "yes" : "no" %></b>
+          </span>
+
+          <span class="pill">
+            <span class="dot <%= dot(data.serverReady) %>" data-dot="ready"></span>
+            Server ready: <b data-ready><%= data.serverReady ? "yes" : "no" %></b>
+          </span>
+
+          <span class="pill">
+            <span class="dot <%= dot(data.playersOnline > 0) %>" data-dot="players"></span>
+            Players: <b data-players><%= data.playersOnline %></b>
+          </span>
+        </div>
+
+        <div class="kv">
+          <div class="k">World</div>
+          <div class="v" data-world><%= data.world || "—" %></div>
+
+          <div class="k">Version</div>
+          <div class="v" data-version>
+            <% if (data.serverVersion) { %>
+              <code><%= data.serverVersion.version %></code>
+              (net <code><%= data.serverVersion.network %></code>)
+            <% } else { %>
+              —
+            <% } %>
+          </div>
+
+          <div class="k">Last activity</div>
+          <div class="v mono" data-last-seen><%= fmtDateTime(data.lastSeenMs) %></div>
+
+          <div class="k">Last line</div>
+          <div class="v">
+            <span class="mono" data-last-line><%= data.lastLine || "—" %></span>
+          </div>
+
+          <div class="k">Error</div>
+          <div class="v">
+            <span class="mono" data-last-error><%= data.lastError || "—" %></span>
+          </div>
+
+          <div class="k">Debug hint</div>
+          <div class="v">
+            <code data-hint><%= data.connectionsHint %></code>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLAYERS CARD -->
+      <div class="card">
+        <p class="title">Online Players</p>
+
+        <div data-players-list>
+          <% if (!data.players || data.players.length === 0) { %>
+            <div class="pill">
+              <span class="dot bad"></span>
+              No active players
+            </div>
+          <% } else { %>
+            <div class="list">
+              <% for (const p of data.players) { %>
+                <div class="player">
+                  <div>
+                    <div class="name"><%= p.name || "Unknown" %></div>
+                    <div class="meta mono"><%= p.steamId %></div>
+                  </div>
+
+                  <div class="meta" style="text-align:right">
+                    <div>
+                      connected:
+                      <span class="mono"><%= fmtDateTime(p.connectedMs) %></span>
+                    </div>
+                    <div>
+                      last seen:
+                      <span class="mono"><%= fmtDateTime(p.lastSeenMs) %></span>
+                    </div>
+                    <div>
+                      active:
+                      <span class="mono"><%= fmtAgo(p.lastSeenMs) %> ago</span>
+                    </div>
+                  </div>
+                </div>
+              <% } %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function setDot(el, ok) {
+      if (!el) return;
+      el.classList.remove("ok", "bad");
+      el.classList.add(ok ? "ok" : "bad");
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function fmt(value) {
+      if (value === null || value === undefined || value === "") return "—";
+      const d = typeof value === "number" ? new Date(value) : new Date(String(value));
+      if (Number.isNaN(d.getTime())) return String(value);
+
+      return new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Kyiv",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }).format(d);
+    }
+
+    function fmtAgo(valueMs) {
+      if (!valueMs) return "—";
+      const diff = Date.now() - valueMs;
+      if (!Number.isFinite(diff) || diff < 0) return "—";
+
+      const s = Math.floor(diff / 1000);
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60);
+      if (m < 60) return `${m}m`;
+      const h = Math.floor(m / 60);
+      if (h < 48) return `${h}h`;
+      const d = Math.floor(h / 24);
+      return `${d}d`;
+    }
+
+    function renderPlayers(players) {
+      if (!players || players.length === 0) {
+        return `
+          <div class="pill">
+            <span class="dot bad"></span>
+            No active players
+          </div>
+        `;
+      }
+
+      const items = players.map(p => {
+        const name = escapeHtml(p.name || "Unknown");
+        const steamId = escapeHtml(p.steamId || "—");
+        const connected = fmt(p.connectedMs);
+        const lastSeen = fmt(p.lastSeenMs);
+        const active = fmtAgo(p.lastSeenMs);
+
+        return `
+          <div class="player">
+            <div>
+              <div class="name">${name}</div>
+              <div class="meta mono">${steamId}</div>
+            </div>
+
+            <div class="meta" style="text-align:right">
+              <div>connected: <span class="mono">${escapeHtml(connected)}</span></div>
+              <div>last seen: <span class="mono">${escapeHtml(lastSeen)}</span></div>
+              <div>active: <span class="mono">${escapeHtml(active)} ago</span></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      return `<div class="list">${items}</div>`;
+    }
+
+    let busy = false;
+
+    async function refreshStatus() {
+      if (busy) return;
+      busy = true;
+
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+
+        const playersOnline = Number(data.playersOnline ?? 0);
+
+        const playersEl = document.querySelector("[data-players]");
+        if (playersEl) playersEl.textContent = String(playersOnline);
+
+        const readyEl = document.querySelector("[data-ready]");
+        if (readyEl) readyEl.textContent = data.serverReady ? "yes" : "no";
+
+        const runningEl = document.querySelector("[data-running]");
+        if (runningEl) runningEl.textContent = data.containerRunning ? "yes" : "no";
+
+        setDot(document.querySelector('[data-dot="players"]'), playersOnline > 0);
+        setDot(document.querySelector('[data-dot="ready"]'), !!data.serverReady);
+        setDot(document.querySelector('[data-dot="running"]'), !!data.containerRunning);
+
+        const worldEl = document.querySelector("[data-world]");
+        if (worldEl) worldEl.textContent = data.world || "—";
+
+        const lastSeenEl = document.querySelector("[data-last-seen]");
+        if (lastSeenEl) lastSeenEl.textContent = fmt(data.lastSeenMs);
+
+        const lastLineEl = document.querySelector("[data-last-line]");
+        if (lastLineEl) lastLineEl.textContent = data.lastLine || "—";
+
+        const lastErrEl = document.querySelector("[data-last-error]");
+        if (lastErrEl) lastErrEl.textContent = data.lastError || "—";
+
+        const hintEl = document.querySelector("[data-hint]");
+        if (hintEl) hintEl.textContent = data.connectionsHint || "";
+
+        const versionEl = document.querySelector("[data-version]");
+        if (versionEl) {
+          if (data.serverVersion?.version && data.serverVersion?.network) {
+            versionEl.innerHTML = `<code>${escapeHtml(data.serverVersion.version)}</code> (net <code>${escapeHtml(data.serverVersion.network)}</code>)`;
+          } else {
+            versionEl.textContent = "—";
+          }
+        }
+
+        const listEl = document.querySelector("[data-players-list]");
+        if (listEl) listEl.innerHTML = renderPlayers(data.players);
+
+      } catch (e) {
+        console.error("Refresh failed:", e);
+        setDot(document.querySelector('[data-dot="ready"]'), false);
+      } finally {
+        busy = false;
+      }
+    }
+
+    refreshStatus();
+    setInterval(refreshStatus, 5000);
+  </script>
+</body>
+</html>
